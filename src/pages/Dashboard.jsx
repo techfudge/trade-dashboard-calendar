@@ -3,89 +3,108 @@ import { useState, useEffect } from 'react';
 import './Dashboard.css';
 
 export default function Dashboard() {
-  const [weekData, setWeekData] = useState([]);
-  const [colorSettings, setColorSettings] = useState({
-    win: '#10b981',
-    loss: '#ef4444'
+  // Initialize state with proper data structure
+  const [weeks, setWeeks] = useState(() => {
+    return Array.from({ length: 28 }, (_, i) => ({
+      week: i + 1,
+      pips: "",
+      profit: "",
+      result: "neutral" // 'win', 'loss', or 'neutral'
+    }));
   });
 
-  // Initialize data
+  // Load saved data on component mount
   useEffect(() => {
-    const initialData = Array.from({ length: 28 }, (_, i) => ({
-      week: i + 1,
-      amount: "$0",
-      trades: "0 trades",
-      percentage: "0%",
-      isSummary: false
-    }));
-    setWeekData(initialData);
+    const savedData = localStorage.getItem('forexDashboardData');
+    if (savedData) {
+      try {
+        const parsedData = JSON.parse(savedData);
+        if (Array.isArray(parsedData)) {
+          setWeeks(parsedData);
+        }
+      } catch (e) {
+        console.error("Failed to parse saved data", e);
+      }
+    }
   }, []);
 
-  const handleUpdateWeek = (weekIndex, field, value) => {
-    setWeekData(prev => prev.map((week, i) => {
-      if (i !== weekIndex) return week;
-      
-      const updated = { ...week };
-      
-      if (field === 'percentage') {
-        const numValue = parseFloat(value) || 0;
-        updated[field] = `${Math.min(100, Math.max(0, numValue))}%`;
-      } else {
-        updated[field] = value;
-      }
-      
-      return updated;
-    }));
+  // Save data whenever it changes
+  useEffect(() => {
+    localStorage.setItem('forexDashboardData', JSON.stringify(weeks));
+  }, [weeks]);
+
+  // Handle win/loss selection
+  const handleSetResult = (weekIndex, result) => {
+    setWeeks(prev => prev.map((week, i) => 
+      i === weekIndex ? { ...week, result } : week
+    ));
+  };
+
+  // Handle input changes
+  const handleInputChange = (weekIndex, field, value) => {
+    setWeeks(prev => prev.map((week, i) => 
+      i === weekIndex ? { ...week, [field]: value } : week
+    ));
   };
 
   return (
-    <div className="dashboard">
-      <div className="color-controls">
-        <label>
-          Win Color:
-          <input 
-            type="color" 
-            value={colorSettings.win}
-            onChange={(e) => setColorSettings(prev => ({
-              ...prev,
-              win: e.target.value
-            }))}
-          />
-        </label>
-        <label>
-          Loss Color:
-          <input 
-            type="color" 
-            value={colorSettings.loss}
-            onChange={(e) => setColorSettings(prev => ({
-              ...prev,
-              loss: e.target.value
-            }))}
-          />
-        </label>
-      </div>
-
-      <div className="weekdays">
+    <div className="dashboard-container">
+      {/* Weekday headers */}
+      <div className="weekdays-header">
         {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-          <div key={day}>{day}</div>
+          <div key={day} className="weekday">{day}</div>
         ))}
       </div>
 
-      <div className="week-cards">
-        {weekData.map((week, index) => (
+      {/* Calendar grid */}
+      <div className="calendar-grid">
+        {weeks.map((week, index) => (
           <div 
-            key={index}
-            className={`week-card ${
-              parseFloat(week.percentage) > 50 ? 'win' : 
-              parseFloat(week.percentage) < 50 ? 'loss' : ''
-            }`}
+            key={week.week} 
+            className={`calendar-cell ${week.result}`}
           >
             <div className="week-number">Week {week.week}</div>
-            <div className="amount">{week.amount}</div>
-            <div className="trades">{week.trades}</div>
-            <div className="percentage">{week.percentage}</div>
+            
+            {/* Pips input */}
+            <input
+              type="text"
+              value={week.pips}
+              onChange={(e) => handleInputChange(index, 'pips', e.target.value)}
+              placeholder="Pips"
+              className="pips-input"
+            />
+            
+            {/* Profit input */}
+            <input
+              type="text"
+              value={week.profit}
+              onChange={(e) => handleInputChange(index, 'profit', e.target.value)}
+              placeholder="$ Profit"
+              className="profit-input"
+            />
+            
+            {/* Win/Loss buttons */}
+            <div className="result-controls">
+              <button
+                className={`win-btn ${week.result === 'win' ? 'active' : ''}`}
+                onClick={() => handleSetResult(index, 'win')}
+              >
+                Win
+              </button>
+              <button
+                className={`loss-btn ${week.result === 'loss' ? 'active' : ''}`}
+                onClick={() => handleSetResult(index, 'loss')}
+              >
+                Loss
+              </button>
+            </div>
           </div>
         ))}
+      </div>
+
+      {/* Save indicator */}
+      <div className="save-notice">
+        Data saves automatically!
       </div>
     </div>
   );
